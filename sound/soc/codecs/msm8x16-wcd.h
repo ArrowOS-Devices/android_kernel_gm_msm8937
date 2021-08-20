@@ -246,6 +246,12 @@ struct msm8916_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_quin_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
 	struct on_demand_supply wsa_switch_supply;
+#ifdef CONFIG_SND_SOC_TAS2560
+	/* BEGIN DTS2016110501867, Added by xwx405452, 2016/11/08 */
+	const char *spk_pa_name;
+	int spk_pa_num;
+	/* END DTS2016110501867, Added by xwx405452, 2016/11/08 */
+#endif
 };
 
 struct msm8x16_wcd_pdata {

@@ -101,6 +101,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_STAC9766 if SND_SOC_AC97_BUS
 	select SND_SOC_TAS2552 if I2C
 	select SND_SOC_TAS5086 if I2C
+	select SND_SOC_TAS2560 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
 	select SND_SOC_TLV320AIC26 if SPI_MASTER
@@ -576,6 +577,20 @@ config SND_SOC_TAS2552
 config SND_SOC_TAS5086
 	tristate "Texas Instruments TAS5086 speaker amplifier"
 	depends on I2C
+
+#lc mike_zhu 20170816 add for   tas2560 start
+config SND_SOC_TAS2560
+	tristate "Texas Instruments TAS2560 speaker amplifier"
+
+config TAS2560_REGMAP
+	bool "Use of RegMap API"
+
+config TAS2560_CODEC
+	bool "Codec Driver support"
+
+config TAS2560_MISC
+	 bool "Misc Driver support"
+#mike_zhu end
 
 config SND_SOC_TLV320AIC23
 	tristate

@@ -1,6 +1,8 @@
 #Android makefile to build kernel as a part of Android Build
 PERL		= perl
 
+KERNEL_CONFIG_OVERRIDE := 
+
 KERNEL_TARGET := $(strip $(INSTALLED_KERNEL_TARGET))
 ifeq ($(KERNEL_TARGET),)
 INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
@@ -33,10 +35,35 @@ ifeq ($(KERNEL_HEADER_DEFCONFIG),)
 KERNEL_HEADER_DEFCONFIG := $(KERNEL_DEFCONFIG)
 endif
 
+ifeq ($(LCT_PROJECT_NAME),tel_l2310_a01)
+KERNEL_CONFIG_OVERRIDE += CONFIG_BUILD_L2310_A01=y
+endif
+
+ifeq ($(LCT_PROJECT_NAME),tel_l2310_b01)
+KERNEL_CONFIG_OVERRIDE += CONFIG_BUILD_L2310_B01=y
+endif
+
+##add for mac usb device name
+ifeq ($(LCT_PROJECT_NAME),tel_l2300_a01)
+KERNEL_CONFIG_OVERRIDE += CONFIG_BUILD_A01=y
+endif
+##mike_zhu add for mac usb device name
+ifeq ($(LCT_PROJECT_NAME),tel_l2300_b01)
+KERNEL_CONFIG_OVERRIDE += CONFIG_BUILD_B01=y
+endif
+##add for ssr reboot
+ifneq ($(TARGET_BUILD_VARIANT),userdebug)
+ifeq ($(LCT_BUILD_TYPE),NORMAL)
+KERNEL_CONFIG_OVERRIDE += CONFIG_SSR_REBOOT=y
+endif
+ifeq ($(LCT_BUILD_TYPE),normal)
+KERNEL_CONFIG_OVERRIDE += CONFIG_SSR_REBOOT=y
+endif
+endif
 # Force 32-bit binder IPC for 64bit kernel with 32bit userspace
 ifeq ($(KERNEL_ARCH),arm64)
 ifeq ($(TARGET_ARCH),arm)
-KERNEL_CONFIG_OVERRIDE := CONFIG_ANDROID_BINDER_IPC_32BIT=y
+KERNEL_CONFIG_OVERRIDE += CONFIG_ANDROID_BINDER_IPC_32BIT=y
 endif
 endif
 

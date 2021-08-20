@@ -23,6 +23,8 @@
 
 #include <trace/events/ext4.h>
 
+#define DATA_PARTITION_PROTECT_ENABLE 1
+
 static unsigned ext4_num_base_meta_clusters(struct super_block *sb,
 					    ext4_group_t block_group);
 /*
@@ -536,6 +538,49 @@ ext4_read_block_bitmap(struct super_block *sb, ext4_group_t block_group)
 	return bh;
 }
 
+#if DATA_PARTITION_PROTECT_ENABLE
+static int has_free_blocks(s64 free_blocks, s64 dirty_blocks)
+{
+	//pr_err("has_free_blocks: comm:%s, group_leader:%s\n", current->comm,current->group_leader->comm);
+	/* Low limited value:150M exclude the dirty blocks */
+	if((free_blocks - dirty_blocks) < 50000) {
+		/*limit some system process like adbd...*/
+		if(current->cred->uid.val <= 10000
+		   && !strcmp(current->group_leader->comm, "adbd")
+		) {
+			return 0;
+		}
+		/*pass some system app process*/
+		if(current->cred->uid.val > 10000) {
+			if(strstr(current->group_leader->comm, "android.phone")
+			   || strstr(current->group_leader->comm, "systemui")
+			   || strstr(current->group_leader->comm, "process.media")
+			   || strstr(current->group_leader->comm, "process.acore")
+			   || strstr(current->group_leader->comm, "launcher")
+			   || strstr(current->group_leader->comm, "com.android.mms")
+			   || strstr(current->group_leader->comm, "android.setting")
+			   || strstr(current->group_leader->comm, "dex2oat")
+			   || strstr(current->group_leader->comm, "gms.persistent")
+			   || strstr(current->group_leader->comm, "android.dialer")
+			   || strstr(current->group_leader->comm, "apps.messaging")
+			   || strstr(current->group_leader->comm, "android.talk")
+			   || strstr(current->group_leader->comm, "android.gms")
+			   || strstr(current->group_leader->comm, "roid.calendar")
+			   || strstr(current->group_leader->comm, "apps.photos")
+			   || strstr(current->group_leader->comm, "android.ims")
+			   || strstr(current->group_leader->comm, "roid.calculator")
+			   || strstr(current->group_leader->comm, "obile.assistant")
+			){
+				return 1;
+			} else {
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+#endif
+
 /**
  * ext4_has_free_clusters()
  * @sbi:	in-core super block structure.
@@ -568,6 +613,15 @@ static int ext4_has_free_clusters(struct ext4_sb_info *sbi,
 		free_clusters  = percpu_counter_sum_positive(fcc);
 		dirty_clusters = percpu_counter_sum_positive(dcc);
 	}
+
+        #if DATA_PARTITION_PROTECT_ENABLE
+	if(sbi->s_groups_count >= 5 && has_free_blocks(free_clusters, dirty_clusters) == 0) {
+	    //pr_err("ext4_has_free_clusters: %lld, %lld, %u\n", free_clusters, dirty_clusters, sbi->s_groups_count);
+	    pr_err("ext4_has_free_clusters: no free block for (UID:%d, CMD:%s)\n", current->cred->uid.val, current->group_leader->comm);
+	    return 0;
+	}
+	#endif
+
 	/* Check whether we have space after accounting for current
 	 * dirty clusters & root reserved clusters.
 	 */

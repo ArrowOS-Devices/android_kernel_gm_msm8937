@@ -164,6 +164,12 @@ config FW_LOADER_USER_HELPER_FALLBACK
 	  been deprecated upstream.
 
 	  If you are unsure about this, say N here.
+	  
+#patch Case Number	03510338
+config FW_CACHE
+       bool "Enable firmware caching during suspend"
+       depends on PM_SLEEP
+       default n
 
 config WANT_DEV_COREDUMP
 	bool

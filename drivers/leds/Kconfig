@@ -534,6 +534,15 @@ config LEDS_QPNP_WLED
 	  To compile this driver as a module, choose M here: the module will
 	  be called leds-qpnp-wled.
 
+config LEDS_MSM_BACK_GPIO_FLASH
+        tristate "Support for BACK GPIO Flash LEDs"
+        help
+          This driver supports the leds functionality of GPIO Flash LED. It
+          includes flash mode and torch mode.
+
+          To compile this driver as a module, choose M here: the module will
+          be called leds-back-gpio-flash.
+
 config LEDS_SYSCON
 	bool "LED support for LEDs on system controllers"
 	depends on LEDS_CLASS=y
@@ -558,6 +567,13 @@ config LEDS_AW2013
 	help
 	  This option enables support for the AW2013 RGB LED connected
 	  through I2C. Say Y to enable support for the AW2013 LED.
+
+config LEDS_AW2023
+	tristate "LED Support for AW2023"
+	depends on LEDS_CLASS && I2C
+	help
+		this option enables support for the AW2023 RGB LED connected
+		through I2C. Say Y to enable support for the AW2023 LED
 
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"

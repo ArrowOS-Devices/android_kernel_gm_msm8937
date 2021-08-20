@@ -32,6 +32,7 @@
 #include "../codecs/msm8x16-wcd.h"
 #include "../codecs/wsa881x-analog.h"
 #include <linux/regulator/consumer.h>
+#include <sound/smart_amp.h>
 #define DRV_NAME "msm8952-asoc-wcd"
 
 #define BTSCO_RATE_8KHZ 8000
@@ -68,6 +69,7 @@ static int msm_vi_feed_tx_ch = 2;
 static int mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int mi2s_rx_bits_per_sample = 16;
 static int mi2s_rx_sample_rate = SAMPLING_RATE_48KHZ;
+
 static int mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int mi2s_tx_bits_per_sample = 16;
 static int mi2s_tx_sample_rate = SAMPLING_RATE_48KHZ;
@@ -75,6 +77,16 @@ static int mi2s_tx_sample_rate = SAMPLING_RATE_48KHZ;
 static atomic_t quat_mi2s_clk_ref;
 static atomic_t quin_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
+
+#ifdef CONFIG_SND_SOC_TAS2560
+#define TAS2560_NAME	"tas2560"
+/*
+bool speaker_pa_is_exist(void);
+*/
+static int quin_mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int quin_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static struct msm8916_asoc_mach_data *p_mach_data;
+#endif
 
 static int msm8952_enable_dig_cdc_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
@@ -97,9 +109,9 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = false,
 	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[1] = KEY_VOLUMEUP,
+	.key_code[2] = KEY_VOLUMEDOWN,
+	.key_code[3] = 0,
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
@@ -175,6 +187,21 @@ static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
 static const char *const vi_feed_ch_text[] = {"One", "Two"};
 static char const *mi2s_rx_sample_rate_text[] = {"KHZ_48",
 					"KHZ_96", "KHZ_192"};
+
+#ifdef CONFIG_SND_SOC_TAS2560
+bool speaker_pa_is_exist(void)
+{
+	bool ret = false;
+
+	if ((p_mach_data == NULL) || (p_mach_data->spk_pa_name == NULL))
+		ret = false;
+	else
+		ret = ((!strncmp(p_mach_data->spk_pa_name, TAS2560_NAME,
+			strlen(TAS2560_NAME))));
+	pr_err("%s, ret=%d\n", __func__, ret);
+	return ret;
+}
+#endif
 
 static inline int param_is_mask(int p)
 {
@@ -378,8 +405,11 @@ static int msm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s: Num of channels = %d Sample rate = %d\n", __func__,
 			msm_pri_mi2s_rx_ch, mi2s_rx_sample_rate);
 	rate->min = rate->max = mi2s_rx_sample_rate;
+#ifdef CONFIG_SND_SOC_TAS2560
+	channels->min = channels->max = 2; //ti change
+#else
 	channels->min = channels->max = msm_pri_mi2s_rx_ch;
-
+#endif
 	return 0;
 }
 
@@ -488,6 +518,22 @@ static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_TAS2560
+static int msm_quin_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *params)
+{
+	pr_err("%s(): substream = %s  stream = %d\n", __func__,
+		 substream->name, substream->stream);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       quin_mi2s_rx_bit_format);
+	else
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       quin_mi2s_tx_bit_format);
+	return 0;
+}
+#endif
+
 static int msm8952_get_clk_id(int port_id)
 {
 	switch (port_id) {
@@ -562,7 +608,13 @@ static uint32_t get_mi2s_clk_val(int port_id)
 	 *  channel count is used as 2
 	 */
 	if (is_mi2s_rx_port(port_id))
+        {
+#ifdef CONFIG_SND_SOC_TAS2560
+		clk_val = (mi2s_rx_sample_rate * 16 * 2);
+#else
 		clk_val = (mi2s_rx_sample_rate * mi2s_rx_bits_per_sample * 2);
+#endif
+        }
 	else
 		clk_val = (mi2s_tx_sample_rate * mi2s_tx_bits_per_sample * 2);
 
@@ -1608,7 +1660,7 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8952_wcd_cal)->X) = (Y))
-	S(v_hs_max, 1500);
+	S(v_hs_max, 1600);/* lc mike_zhu  20170816	 increase vref for more headphone compatibility*/
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm8952_wcd_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -1633,13 +1685,13 @@ static void *def_msm8952_wcd_mbhc_cal(void)
 	 */
 	btn_low[0] = 75;
 	btn_high[0] = 75;
-	btn_low[1] = 150;
-	btn_high[1] = 150;
-	btn_low[2] = 225;
-	btn_high[2] = 225;
-	btn_low[3] = 450;
-	btn_high[3] = 450;
-	btn_low[4] = 500;
+	btn_low[1] = 200;
+	btn_high[1] = 200;
+	btn_low[2] = 450;
+	btn_high[2] = 450;
+	btn_low[3] = 500;
+	btn_high[3] = 500;
+ 	btn_low[4] = 500;
 	btn_high[4] = 500;
 
 	return msm8952_wcd_cal;
@@ -1702,7 +1754,11 @@ static struct snd_soc_ops msm8952_quat_mi2s_be_ops = {
 
 static struct snd_soc_ops msm8952_quin_mi2s_be_ops = {
 	.startup = msm_quin_mi2s_snd_startup,
+#ifdef CONFIG_SND_SOC_TAS2560
+	.hw_params = msm_quin_mi2s_snd_hw_params,
+#else
 	.hw_params = msm_mi2s_snd_hw_params,
+#endif
 	.shutdown = msm_quin_mi2s_snd_shutdown,
 };
 
@@ -2351,36 +2407,40 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_QCHAT,
 	},
-	{/* hw:x,38 */
-		.name = "MSM8X16 Compress10",
-		.stream_name = "Compress10",
-		.cpu_dai_name	= "MultiMedia17",
-		.platform_name  = "msm-compress-dsp",
+#ifdef CONFIG_SND_SOC_TAS2560
+	{ /* hw:x,38 */
+		.name = "QUIN_MI2S_TX Hostless",
+		.stream_name = "Quinary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "QUIN_MI2S_TX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			 SND_SOC_DPCM_TRIGGER_POST},
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
-		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA17,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
 	},
-	{/* hw:x,39 */
-		.name = "MSM8X16 Compress11",
-		.stream_name = "Compress11",
-		.cpu_dai_name	= "MultiMedia18",
-		.platform_name  = "msm-compress-dsp",
+
+	{ /* hw:x,39 */
+		.name = "Quinary MI2S_RX Hostless",
+		.stream_name = "QUIN_MI2S Hostless",
+		.cpu_dai_name = "QUIN_MI2S_RX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
-		.dpcm_capture = 1,
+		.dpcm_playback = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			 SND_SOC_DPCM_TRIGGER_POST},
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
-		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA18,
 	},
+#endif
 	{/* hw:x,40 */
 		.name = "MSM8X16 Compress12",
 		.stream_name = "Compress12",
@@ -2742,6 +2802,76 @@ static struct snd_soc_dai_link msm8952_split_a2dp_dai_link[] = {
 	},
 };
 
+#ifdef CONFIG_SND_SOC_TAS2560
+static int tas2560_dai_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+
+	//ret = tas2560_algo_routing_init(rtd);
+
+	return ret;
+}
+
+static struct snd_soc_dai_link msm8952_dailink_custom[] = {
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tas2560 ASI1",
+		.codec_name = "tas2560.2-004c",
+		.init = &tas2560_dai_init,
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+
+	{
+		.name = LPASS_BE_QUIN_MI2S_TX,
+		.stream_name = "Quinary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "tas2560 ASI1",
+		.codec_name = "tas2560.2-004c",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_suspend = 1,
+	}
+};
+
+static void msm8952_dailink_custom_check(struct snd_soc_card *card)
+{
+	struct snd_soc_dai_link *dai_link = NULL;
+	int i;
+
+	for (i = 0; i < card->num_links; i++) {
+		dai_link = card->dai_link + i;
+		if (dai_link->no_pcm == 0)
+			continue;
+
+		switch (dai_link->be_id) {
+		case MSM_BACKEND_DAI_QUINARY_MI2S_RX:
+			memcpy(dai_link, &msm8952_dailink_custom[0],
+					sizeof(struct snd_soc_dai_link));
+			break;
+		case MSM_BACKEND_DAI_QUINARY_MI2S_TX:
+			memcpy(dai_link, &msm8952_dailink_custom[1],
+					sizeof(struct snd_soc_dai_link));
+			break;
+		default:
+			break;
+		}
+	}
+}
+#endif
+
 static struct snd_soc_dai_link msm8952_dai_links[
 ARRAY_SIZE(msm8952_dai) +
 ARRAY_SIZE(msm8952_hdmi_dba_dai_link) +
@@ -3067,6 +3197,9 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	const char *mclk = "qcom,msm-mclk-freq";
 	const char *wsa = "asoc-wsa-codec-names";
 	const char *wsa_prefix = "asoc-wsa-codec-prefixes";
+#ifdef CONFIG_SND_SOC_TAS2560
+	const char *smartpa_name = "qcom,smartpa-name";
+#endif
 	const char *type = NULL;
 	const char *ext_pa_str = NULL;
 	const char *wsa_str = NULL;
@@ -3080,6 +3213,10 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 			sizeof(struct msm8916_asoc_mach_data), GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
+
+#ifdef CONFIG_SND_SOC_TAS2560
+	p_mach_data = pdata;
+#endif
 
 	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"csr_gp_io_mux_mic_ctl");
@@ -3096,7 +3233,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err1;
 	}
-
+	pr_err("%s  smartpa---1---\n",__func__);
 	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"csr_gp_io_mux_spkr_ctl");
 	if (!muxsel) {
@@ -3159,6 +3296,7 @@ parse_mclk_freq:
 			"%s: error reading dtsi files%d\n", __func__, ret);
 		goto err;
 	}
+	pr_err("%s  smartpa---2---\n",__func__);
 
 	num_strings = of_property_count_strings(pdev->dev.of_node,
 			wsa);
@@ -3188,6 +3326,7 @@ parse_mclk_freq:
 					goto err;
 				}
 				msm8952_aux_dev[i].codec_name = temp_str;
+				pr_err("%s  smartpa-msm8952_aux_dev[i].codec_name:%s\n",__func__,msm8952_aux_dev[i].codec_name);
 				temp_str = NULL;
 
 				temp_str = kstrdup(wsa_str, GFP_KERNEL);
@@ -3227,8 +3366,26 @@ parse_mclk_freq:
 			msm8x16_update_int_spk_boost(false);
 		}
 	}
+#ifdef CONFIG_SND_SOC_TAS2560
+	msm8x16_update_int_spk_boost(false);//mike_zhu 20171030 add fm power comsumption high
+	ret = of_property_read_string(pdev->dev.of_node, smartpa_name,
+		&pdata->spk_pa_name);
+	if (ret)
+		pr_info("%s: there is no %s in dt node\n", __func__,
+			smartpa_name);
+	else
+		pr_info("%s: smartpa_name %s\n", __func__, pdata->spk_pa_name);
+#endif
 
 	card = msm8952_populate_sndcard_dailinks(&pdev->dev);
+
+#ifdef CONFIG_SND_SOC_TAS2560
+	if (speaker_pa_is_exist())
+		{
+			msm8952_dailink_custom_check(card);
+		}
+#endif
+
 	dev_info(&pdev->dev, "default codec configured\n");
 	num_strings = of_property_count_strings(pdev->dev.of_node,
 			ext_pa);
@@ -3345,6 +3502,7 @@ parse_mclk_freq:
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
+	pr_err("%s  smartpa---3---\n",__func__);
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
@@ -3352,8 +3510,11 @@ parse_mclk_freq:
 			ret);
 		goto err;
 	}
+
+	pr_err("%s  smartpa---4---\n",__func__);
 	return 0;
 err:
+	pr_err("%s  smartpa---5---\n",__func__);
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
 	if (pdata->vaddr_gpio_mux_mic_ctl)

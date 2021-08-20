@@ -11,10 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#include "msm-pmi8937.dtsi"
+//#include "msm-pmi8937.dtsi"
 #include "msm8937-mtp.dtsi"
 #include "msm8937-audio-mtp.dtsi"
-
+/*
 &soc {
 	led_flash0: qcom,camera-flash {
 		cell-index = <0>;
@@ -43,3 +43,4 @@
 	qcom,chg-led-sw-controls;
 	qcom,chg-led-support;
 };
+*/

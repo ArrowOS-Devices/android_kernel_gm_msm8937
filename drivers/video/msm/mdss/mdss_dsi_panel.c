@@ -33,6 +33,7 @@
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
 #define VSYNC_DELAY msecs_to_jiffies(17)
+extern int focaltech_gesture_enable;
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
@@ -210,11 +211,42 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
+#if 1
+extern int ID0_status,ID1_status;
+//tianma start
+static unsigned char led_pwm[3] = {0x51, 0x0 ,0x0};
+static struct dsi_cmd_desc backlight_cmd = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm)},
+	led_pwm
+};
+//tianma end
+
+//truly start
+static unsigned char led_pwm1[2] = {0x50, 0x5A};
+static unsigned char led_pwm2[2] = {0x51, 0x23};
+static unsigned char led_pwm3[3] = {0x90, 0x00, 0X00};
+static struct dsi_cmd_desc backlight_cmd1 = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm1)},
+	led_pwm1
+};
+static struct dsi_cmd_desc backlight_cmd2 = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm2)},
+	led_pwm2
+};
+static struct dsi_cmd_desc backlight_cmd3 = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm3)},
+	led_pwm3
+};
+//truly end
+#else
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc backlight_cmd = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
 	led_pwm1
 };
+
+#endif
+
 
 static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
@@ -229,16 +261,55 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	pr_debug("%s: level=%d\n", __func__, level);
 
-	led_pwm1[1] = (unsigned char)level;
+#if 1
+		memset(&cmdreq, 0, sizeof(cmdreq));
+		cmdreq.cmds_cnt = 1;
+		cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
 
-	memset(&cmdreq, 0, sizeof(cmdreq));
-	cmdreq.cmds = &backlight_cmd;
-	cmdreq.cmds_cnt = 1;
-	cmdreq.flags = CMD_REQ_COMMIT;
-	cmdreq.rlen = 0;
-	cmdreq.cb = NULL;
+		if((ID0_status == 0) && (ID1_status == 1)){
+			led_pwm[1] = (unsigned char)((level & 0x0f00)>>8);
+			led_pwm[2] = (unsigned char)(level & 0xff);
+			pr_err("lj zy.%s led_pwm[1]= 0x%x,led_pwm[2]=0x%x\n",__func__,led_pwm[1],led_pwm[2]);
 
-	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+			cmdreq.cmds = &backlight_cmd;
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		}
+		else if((ID0_status == 1) && (ID1_status == 0)){
+			led_pwm[1] = (unsigned char)((level & 0x0f00)>>8);
+			led_pwm[2] = (unsigned char)(level & 0xff);
+			pr_err("guoxian .%s led_pwm[1]= 0x%x,led_pwm[2]=0x%x\n",__func__,led_pwm[1],led_pwm[2]);	
+
+			cmdreq.cmds = &backlight_cmd;
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		}
+		else if((ID0_status == 1) && (ID1_status == 1)){
+
+			led_pwm3[1] = (unsigned char)((level & 0xff0)>>4);
+			led_pwm3[2] = (unsigned char)(level & 0x0f);
+			pr_err("zy.%s led_pwm3[1]= 0x%x,led_pwm3[2]=0x%x\n",__func__,led_pwm3[1],led_pwm3[2]);
+
+			cmdreq.cmds = &backlight_cmd1;
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+			cmdreq.cmds = &backlight_cmd2;
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+			cmdreq.cmds = &backlight_cmd3;
+			mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		}
+#else
+		led_pwm1[1] = (unsigned char)level;
+
+		memset(&cmdreq, 0, sizeof(cmdreq));
+		cmdreq.cmds = &backlight_cmd;
+		cmdreq.cmds_cnt = 1;
+		cmdreq.flags = CMD_REQ_COMMIT;
+		cmdreq.rlen = 0;
+		cmdreq.cb = NULL;
+
+		mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+#endif
+
 }
 
 static void mdss_dsi_panel_set_idle_mode(struct mdss_panel_data *pdata,
@@ -411,8 +482,8 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	if (enable) {
 		rc = mdss_dsi_request_gpios(ctrl_pdata);
 		if (rc) {
-			pr_err("gpio request failed\n");
-			return rc;
+			pr_err("lj  ctrl_pdata gpio request failed\n");
+		//	return rc;
 		}
 		if (!pinfo->cont_splash_enabled) {
 			if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
@@ -486,8 +557,10 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			usleep_range(100, 110);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
+	/*	if (gpio_is_valid((ctrl_pdata->rst_gpio))) {
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		gpio_free(ctrl_pdata->rst_gpio);
+		}*/
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
 			gpio_free(ctrl_pdata->mode_gpio);
 	}
@@ -569,7 +642,7 @@ static void mdss_dsi_send_col_page_addr(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
 	cmdreq.cmds_cnt = 2;
-	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
 	if (unicast)
 		cmdreq.flags |= CMD_REQ_UNICAST;
 	cmdreq.rlen = 0;
@@ -800,7 +873,6 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	if ((bl_level < pdata->panel_info.bl_min) && (bl_level != 0))
 		bl_level = pdata->panel_info.bl_min;
-
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
 		led_trigger_event(bl_led_trigger, bl_level);
@@ -1683,7 +1755,9 @@ static int mdss_dsi_parse_reset_seq(struct device_node *np,
 	}
 	return 0;
 }
-
+static int g_esd_times = 0;
+static int g_esd_sussece_times = 0;
+static int g_esd_fail_times = 0;
 static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int i, j;
@@ -1691,6 +1765,8 @@ static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 	int group = 0;
 
 	lenp = ctrl->status_valid_params ?: ctrl->status_cmds_rlen;
+	g_esd_times++;
+	pr_err("lj esd check =g_esd_times:%d==g_esd_sussece_times:%d=g_esd_fail_times:%d=\n", g_esd_times,g_esd_sussece_times,g_esd_fail_times);
 
 	for (i = 0; i < ctrl->status_cmds.cmd_cnt; i++)
 		len += lenp[i];
@@ -1698,12 +1774,22 @@ static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 	for (j = 0; j < ctrl->groups; ++j) {
 		for (i = 0; i < len; ++i) {
 			if (ctrl->return_buf[i] !=
-				ctrl->status_value[group + i])
+				ctrl->status_value[group + i]){
+				g_esd_fail_times++;
+				pr_err("lj esd fail 0x%x ===0x%x  g_esd_fail_times:%d\n",ctrl->return_buf[i], ctrl->status_value[group + i], g_esd_fail_times);
+
 				break;
+			}
+		//printk("lj esd ok 0x%x ===0x%x\n",ctrl->return_buf[i], ctrl->status_value[group + i]);
+
 		}
 
-		if (i == len)
+		if (i == len) {
+			g_esd_sussece_times++;
+			pr_err("lj esd check ok=g_esd_sussece_times:%d====\n", g_esd_sussece_times);
+
 			return true;
+		}
 		group += len;
 	}
 

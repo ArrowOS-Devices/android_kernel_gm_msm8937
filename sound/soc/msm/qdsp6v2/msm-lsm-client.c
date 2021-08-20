@@ -341,7 +341,6 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 		prtd->event_status->timestamp_msw = event_ts_msw;
 		prtd->event_status->status = status;
 		prtd->event_status->payload_size = payload_size;
-
 		if (likely(prtd->event_status)) {
 			if (client_size >= (payload_size + index)) {
 				memcpy(prtd->event_status->payload,

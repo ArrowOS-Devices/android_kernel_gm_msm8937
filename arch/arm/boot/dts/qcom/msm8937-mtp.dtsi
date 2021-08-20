@@ -14,6 +14,7 @@
 #include "msm8937-pinctrl.dtsi"
 #include "msm8937-camera-sensor-mtp.dtsi"
 
+/*
 &flash_led {
 	compatible = "qcom,qpnp-flash-led";
 	reg = <0xd300 0x100>;
@@ -26,6 +27,7 @@
 &wled {
 	qcom,cons-sync-write-delay-us = <1000>;
 };
+*/
 
 &soc {
 	gpio_keys {
@@ -34,7 +36,7 @@
 		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
 		pinctrl-0 = <&gpio_key_active>;
 		pinctrl-1 = <&gpio_key_suspend>;
-
+/*
 		camera_focus {
 			label = "camera_focus";
 			gpios = <&tlmm 128 0x1>;
@@ -50,7 +52,7 @@
 			linux,code = <0x2fe>;
 			debounce-interval = <15>;
 		};
-
+*/
 		vol_up {
 			label = "volume_up";
 			gpios = <&tlmm 91 0x1>;
@@ -59,13 +61,88 @@
 			debounce-interval = <15>;
 		};
 	};
-
+/*
 	hbtp {
 		compatible = "qcom,hbtp-input";
 		vcc_dig-supply = <&pm8937_l5>;
 		qcom,dig-load = <15000>;
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
+	};
+*/
+
+        vibrator_gpio {
+                compatible = "qcom,vibrator-gpio";
+                qcom,vibrator-timeout-ms = <15000>;
+                qcom,vib-gpio_one = <&tlmm 128 0x00>;
+                ///qcom,vib-gpio_two = <&tlmm 9 0x00>;
+                label = "vibrator";
+        };
+
+	SUNWAVE_sw9651{
+        compatible = "qcom,fingerprint";
+        interrupt-parent = <&tlmm>;
+        interrupt = <124 0x0>;
+        vcc_spi_supply = <&pm8937_l6>;
+        vcc_ana_supply = <&pm8937_l6>;
+        vdd_io-supply = <&pm8937_l6>;
+	    vcc_vana-supply = <&pm8937_l22>;
+        qcom,reset-gpio  = <&tlmm 132 0>;
+        qcom,irq-gpio = <&tlmm 124 0>;
+        //qcom,pwr-gpio = <&tlmm 128 0>;
+     };
+     fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		interrupt-parent = <&tlmm>;
+		interrupts = <124 0x0>;
+		fpc,gpio_rst    = <&tlmm 132 0x0>;
+		fpc,gpio_irq    = <&tlmm 124 0x0>;
+		fpc,gpio_pwr    = <&tlmm 128 0x0>;
+		vcc_spi-supply  = <&pm8937_l6>;
+		vdd_io-supply   = <&pm8937_l6>;
+		vdd_ana-supply  = <&pm8937_l6>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+			"fpc1020_reset_active",
+			"fpc1020_irq_active";
+
+		pinctrl-0 = <&msm_gpio_132>;
+		pinctrl-1 = <&msm_gpio_132_output_high>;
+		pinctrl-2 = <&msm_gpio_124>;
+	};
+};
+
+&i2c_1{ /* BLSP1 QUP2 */
+	tps65132@3e {
+		compatible = "ti,tps65132";
+		reg = <0x3e>;
+		i2c-pwr-supply = <&pm8937_l6>;
+		/*ti,en-gpio-lpm;*/
+		pinctrl-names = "default";
+		pinctrl-0 = <&tps65132_en_default>;
+
+		regulators {
+			tps65132_pos: pos-boost {
+				regulator-name = "tps65132-pos";
+				regulator-min-microvolt = <5300000>;
+				regulator-max-microvolt = <6000000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <200000>;
+				ti,en-gpio = <&tlmm 12 0>;
+			};
+
+			tps65132_neg: neg-boost {
+				regulator-name = "tps65132-neg";
+				regulator-min-microvolt = <5300000>;
+				regulator-max-microvolt = <6000000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <80000>;
+				ti,en-gpio = <&tlmm 13 0>;
+			};
+		};
 	};
 };
 
@@ -74,7 +151,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_active>;
 };
-
+/*
 &pmi_haptic{
 	qcom,wave-play-rate-us = <4165>;
 	qcom,actuator-type = "lra";
@@ -84,7 +161,7 @@
 	qcom,correct-lra-drive-freq;
 	qcom,misc-trim-error-rc19p2-clk-reg-present;
 };
-
+*/
 &spi_3 { /* BLSP1 QUP3 */
 	maxim_sti@0 {
 		status = "disabled";
@@ -177,7 +254,7 @@
 		1 &intc 0 221 0
 		2 &tlmm 67 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 67 0x1>;
+	cd-gpios = <&tlmm 67 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
@@ -210,17 +287,21 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
+
+	/delete-property/ lab-supply;
+	/delete-property/ ibb-supply;
+
+	qcom,dsi-pref-prim-pan = <&dsi_ft8006m_720_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
 
-	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-enable-gpio = <&tlmm 99 0>;
 	qcom,platform-reset-gpio = <&tlmm 60 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
-};
 
+	lab-supply = <&tps65132_pos>;
+	ibb-supply = <&tps65132_neg>;
+};
+/*
 &mdss_dsi1 {
 	status = "disabled";
 	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
@@ -232,6 +313,51 @@
 	qcom,platform-enable-gpio = <&tlmm 99 0>;
 	qcom,platform-reset-gpio = <&tlmm 60 0>;
 	qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
+};
+*/
+&dsi_panel_pwr_supply {
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <6000000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <200>;
+		qcom,supply-disable-load = <0>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <6000000>;
+		qcom,supply-max-voltage = <6000000>;
+		qcom,supply-enable-load = <40>;
+		qcom,supply-disable-load = <0>;
+	};
+};
+
+&dsi_panel_pwr_supply_ft8006m {
+	qcom,panel-supply-entry@2 {
+		reg = <2>;
+		qcom,supply-name = "lab";
+		qcom,supply-min-voltage = <5500000>;
+		qcom,supply-max-voltage = <5500000>;
+		qcom,supply-enable-load = <200>;
+		qcom,supply-disable-load = <0>;
+	};
+
+	qcom,panel-supply-entry@3 {
+		reg = <3>;
+		qcom,supply-name = "ibb";
+		qcom,supply-min-voltage = <5500000>;
+		qcom,supply-max-voltage = <5500000>;
+		qcom,supply-enable-load = <40>;
+		qcom,supply-disable-load = <0>;
+	};
+};
+
+&dsi_hx83102b_720_vid {
+	//qcom,esd-check-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_truly_1080_vid {
@@ -259,5 +385,19 @@
 		qcom,mode = <0>;
 		qcom,vin-sel = <3>;
 		status = "okay";
+	};
+};
+
+&tlmm {
+	tps65132-en-pin {
+		qcom,pins = "gpio12", "gpio13";
+		qcom,num-grp-pins = <2>;
+		label = "tps65132_en_pins";
+		qcom,pin-func = <0>;
+
+		tps65132_en_default: en-default {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
 	};
 };

@@ -2800,6 +2800,7 @@ pm_error:
 	return result;
 }
 
+int power_down_zy = 0;
 static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -2867,6 +2868,8 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 				pr_err("PP release failed ret %d\n", ret);
 		}
 
+		power_down_zy = 1;
+		pr_err("zy.enter %s to shut down; power_down_zy = %d\n",__func__,power_down_zy);
 		/* reset backlight before blank to prevent backlight from
 		 * enabling ahead of unblank. for some special cases like
 		 * adb shell stop/start.

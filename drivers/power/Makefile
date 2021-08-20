@@ -83,3 +83,5 @@ obj-$(CONFIG_MSM_BCL_CTL)	+= msm_bcl.o
 obj-$(CONFIG_MSM_BCL_PERIPHERAL_CTL) += bcl_peripheral.o
 obj-$(CONFIG_POWER_RESET)	+= reset/
 obj-$(CONFIG_ARCH_MSM)		+= qcom/
+obj-$(CONFIG_BQ2560X_CHARGER)	+= bq2560x_charger.o
+obj-$(CONFIG_BQ27426_FG)	+= bq27426_fg.o

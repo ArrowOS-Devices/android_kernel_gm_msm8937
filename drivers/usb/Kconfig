@@ -149,6 +149,28 @@ source "drivers/usb/phy/Kconfig"
 
 source "drivers/usb/gadget/Kconfig"
 
+config BUILD_L2310_A01
+     bool "just for A01 build"
+     help
+	This is just for BUILD_L2310_A01  build
+
+config BUILD_L2310_B01
+     bool "just for A01 build"
+     help
+	This is just for BUILD_L2310_B01  build
+
+
+config BUILD_B01
+     bool "just for A01 build"
+     help
+	This is just for A01  build
+
+#lc mike_zhu add for MAC usb device name
+config BUILD_A01
+     bool "just for A01 build"
+     help
+	This is just for A01  build
+
 config USB_LED_TRIG
 	bool "USB LED Triggers"
 	depends on LEDS_CLASS && USB_COMMON && LEDS_TRIGGERS

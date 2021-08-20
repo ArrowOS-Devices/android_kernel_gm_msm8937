@@ -23,6 +23,7 @@
 #include <sound/q6afe-v2.h>
 #include <sound/audio_cal_utils.h>
 #include <sound/asound.h>
+#include <sound/smart_amp.h>
 #include "msm-dts-srs-tm-config.h"
 #include <sound/adsp_err.h>
 
@@ -117,6 +118,65 @@ static struct adm_multi_ch_map multi_ch_maps[2] = {
 static int adm_get_parameters[MAX_COPPS_PER_PORT * ADM_GET_PARAMETER_LENGTH];
 static int adm_module_topo_list[
 	MAX_COPPS_PER_PORT * ADM_GET_TOPO_MODULE_LIST_LENGTH];
+
+#ifdef SMART_AMP
+extern int afe_smartamp_set_calib_data(uint32_t param_id,
+						struct afe_smartamp_set_params_t *prot_config,
+						uint8_t length);
+
+int afe_smartamp_get_calib_data(struct afe_smartamp_get_calib *calib_resp,
+		uint32_t param_id,
+		uint32_t module_id);
+
+int afe_smartamp_algo_ctrl(u8 *user_data, uint32_t param_id,
+			uint8_t get_set, int32_t length)
+{
+	int32_t  ret = 0;
+
+	switch (get_set) {
+	case TAS_SET_PARAM:
+		ret = afe_smartamp_set_calib_data(param_id ,
+			(struct afe_smartamp_set_params_t *)user_data, length);
+		break;
+
+	case TAS_GET_PARAM: {
+		static struct afe_smartamp_get_calib calib_resp;
+
+		ret = afe_smartamp_get_calib_data(&calib_resp,
+				  param_id, AFE_SMARTAMP_MODULE);
+
+		memcpy(user_data , calib_resp.res_cfg.payload , length);
+		}
+		break;
+	default:
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+
+int32_t adm_smartamp_profile_set(int32_t port_id, u8 *profile_number
+		, uint8_t sz)
+{
+	struct afe_smartamp_set_params_t prot_config;
+
+	memcpy (prot_config.payload, (void*)profile_number, sz);
+	return afe_smartamp_set_calib_data(
+		(1 << 24) | (sz << 16) | AFE_SA_SET_PROFILE, &prot_config, sz);
+}
+
+int32_t adm_smartamp_set_re(int32_t port_id, u8 *re, uint8_t sz)
+{
+	struct afe_smartamp_set_params_t prot_config;
+
+	memcpy (prot_config.payload, (void*)re, sz);
+	return afe_smartamp_set_calib_data(
+		(1 << 24) | (sz << 16) | AFE_SA_SET_RE, &prot_config, sz);
+}
+
+
+#endif
 
 int adm_validate_and_get_port_index(int port_id)
 {

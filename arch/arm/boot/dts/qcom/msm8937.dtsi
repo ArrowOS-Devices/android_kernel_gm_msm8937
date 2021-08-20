@@ -35,7 +35,7 @@
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,verify";
+					fsmgr_flags = "wait,slotselect";
 					status = "ok";
 				};
 			};
@@ -50,7 +50,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -120,6 +120,7 @@
 		smd11 = &smdtty_data11;
 		smd21 = &smdtty_data21;
 		smd36 = &smdtty_loopback;
+		i2c1 = &i2c_1;
 		i2c2 = &i2c_2;
 		i2c5 = &i2c_5;
 		spi3 = &spi_3;
@@ -500,6 +501,29 @@
 		qcom,summing-threshold = <10>;
 	};
 
+        i2c_1: i2c@78b5000 { /* BLSP2 QUP1 */
+                compatible = "qcom,i2c-msm-v2";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg-names = "qup_phys_addr";
+                reg = <0x78b5000 0x600>;
+                interrupt-names = "qup_irq";
+                interrupts = <0 95 0>;
+                dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
+                        <&dma_blsp1 9 32 0x20000020 0x20>;
+                dma-names = "tx", "rx";
+                qcom,master-id = <86>;
+                qcom,clk-freq-out = <400000>;
+                qcom,clk-freq-in  = <19200000>;
+                clock-names = "iface_clk", "core_clk";
+                clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+                         <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
+                pinctrl-names = "i2c_active", "i2c_sleep";
+                pinctrl-0 = <&i2c_1_active>;
+                pinctrl-1 = <&i2c_1_sleep>;
+
+        };
+
 	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
@@ -523,17 +547,6 @@
 		dmas = <&dma_blsp1 6 64 0x20000020 0x20>,
 			<&dma_blsp1 7 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-
-		pericom-type-c@1d {
-			compatible = "pericom,usb-type-c";
-			reg = <0x1d>;
-			vdd_io-supply = <&pm8937_l5>;
-			interrupt-parent = <&tlmm>;
-			interrupts = <97 2>;  /* TLMM 97, TRIGGER_FALLING */
-			pericom,enb-gpio = <&tlmm 131 0x1>;	/* active low */
-			pinctrl-names = "default";
-			pinctrl-0 = <&usbc_int_default>;
-		};
 
 		/* DSI_TO_HDMI I2C configuration */
 		adv7533@39 {
@@ -575,8 +588,8 @@
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_3_active>;
 		pinctrl-1 = <&i2c_3_sleep>;
-		qcom,noise-rjct-scl = <0>;
-		qcom,noise-rjct-sda = <0>;
+		qcom,noise-rjct-scl = <3>;
+		qcom,noise-rjct-sda = <3>;
 		qcom,master-id = <86>;
 		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
 			<&dma_blsp1 9 32 0x20000020 0x20>;
@@ -1125,7 +1138,7 @@
 		HSUSB_1p8-supply = <&pm8937_l7>;
 		HSUSB_3p3-supply = <&pm8937_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
-		vbus_otg-supply = <&smbcharger_charger_otg>;
+		//vbus_otg-supply = <&smbcharger_charger_otg>;
 
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
@@ -1543,9 +1556,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84a00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84a00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;

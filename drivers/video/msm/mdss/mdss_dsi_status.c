@@ -31,7 +31,7 @@
 #include "mdss_panel.h"
 #include "mdss_mdp.h"
 
-#define STATUS_CHECK_INTERVAL_MS 5000
+#define STATUS_CHECK_INTERVAL_MS 3000
 #define STATUS_CHECK_INTERVAL_MIN_MS 50
 #define DSI_STATUS_CHECK_INIT -1
 #define DSI_STATUS_CHECK_DISABLE 1
@@ -39,7 +39,7 @@
 static uint32_t interval = STATUS_CHECK_INTERVAL_MS;
 static int32_t dsi_status_disable = DSI_STATUS_CHECK_INIT;
 struct dsi_status_data *pstatus_data;
-
+extern int g_auto_update_for_lcm_flag;
 /*
  * check_dsi_ctrl_status() - Reads MFD structure and
  * calls platform specific DSI ctrl Status function.
@@ -133,6 +133,7 @@ static int fb_event_callback(struct notifier_block *self,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
 	struct msm_fb_data_type *mfd;
+	static int skip_times = 0;
 
 	if (!evdata) {
 		pr_err("%s: event data not available\n", __func__);
@@ -174,8 +175,17 @@ static int fb_event_callback(struct notifier_block *self,
 
 		switch (*blank) {
 		case FB_BLANK_UNBLANK:
+			if ((0 == skip_times) && (1 == g_auto_update_for_lcm_flag)) {    //lj need add tp update fw flag
+				pr_err("lj first boot and tp fw need update@@@\n");
+				skip_times = 1;
+				g_auto_update_for_lcm_flag = 0;
 			schedule_delayed_work(&pdata->check_status,
-				msecs_to_jiffies(interval));
+					msecs_to_jiffies(interval + 20000));
+			} else {
+				schedule_delayed_work(&pdata->check_status,
+					msecs_to_jiffies(interval ));
+			}
+
 			break;
 		case FB_BLANK_VSYNC_SUSPEND:
 		case FB_BLANK_NORMAL:

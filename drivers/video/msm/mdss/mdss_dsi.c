@@ -44,6 +44,7 @@ static struct mdss_dsi_data *mdss_dsi_res;
 #define DSI_ENABLE_PC_LATENCY PM_QOS_DEFAULT_VALUE
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
+int ID0_status,ID1_status;
 
 static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -272,6 +273,12 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev,
 	return rc;
 }
 
+extern bool fw_upgrade_complete;
+
+extern int power_down_zy;
+extern uint8_t HX_SMWP_EN;
+extern int focaltech_gesture_enable;
+
 static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
@@ -286,21 +293,142 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	ret = mdss_dsi_panel_reset(pdata, 0);
-	if (ret) {
-		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
-		ret = 0;
+	if(unlikely(power_down_zy == 1 && ID0_status == 1 && ID1_status == 1)){
+
+		if (unlikely(focaltech_gesture_enable ==1)){
+
+			pr_err("xinli it's lcd2 ,double tap on ,mdss_dsi_panel_power_off,not disable power ---00-- \n");
+			ret = msm_dss_enable_vreg(
+				ctrl_pdata->panel_power_data.vreg_config,
+				ctrl_pdata->panel_power_data.num_vreg, 1);
+			gpio_set_value(12,1);
+			gpio_set_value(13,1);
+			gpio_set_value(64,1);
+			gpio_set_value(60,1);
+		}else{
+
+			pr_err("zy.enter %s  power_down_zy = %d\n",__func__,power_down_zy);
+			ret = mdss_dsi_panel_reset(pdata, 0);
+			if (ret) {
+				pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+				ret = 0;
+			}
+
+			if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+				pr_debug("reset disable: pinctrl not enabled\n");
+
+			ret = msm_dss_enable_vreg(
+				ctrl_pdata->panel_power_data.vreg_config,
+				ctrl_pdata->panel_power_data.num_vreg, 0);
+			if (ret)
+				pr_err("%s: failed to disable vregs for %s\n",
+					__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+			else
+				pr_err("execte power down sequence in shutdown mode!\n");
+			}
+	}
+	else if(unlikely( focaltech_gesture_enable == 1  && ID0_status == 1 && ID1_status == 1)){
+			pr_err("xinli it's lcd2 ,double tap on ,mdss_dsi_panel_power_off,not disable power ---11--	\n");
+			ret = msm_dss_enable_vreg(
+				ctrl_pdata->panel_power_data.vreg_config,
+				ctrl_pdata->panel_power_data.num_vreg, 1);
+			gpio_set_value(12,1);
+			gpio_set_value(13,1);
+			gpio_set_value(64,1);
+			gpio_set_value(60,1);
+	}
+	else if(unlikely( focaltech_gesture_enable == 0  && ID0_status == 1 && ID1_status == 1)){
+
+		pr_err(" deep sleep enter %s  focaltech_gesture_enable = %d\n",__func__,focaltech_gesture_enable);
+
+		ret = mdss_dsi_panel_reset(pdata, 0);
+		if (ret) {
+			pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+			ret = 0;
+		}
+		gpio_set_value(60,1);	
+		gpio_set_value(64,1);
+		msleep(2);
+		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+			pr_debug("reset disable: pinctrl not enabled\n");
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->panel_power_data.vreg_config,
+			ctrl_pdata->panel_power_data.num_vreg, 0);
+		gpio_set_value(13,0);	
+		msleep(10);
+		gpio_set_value(12,0);
+
+		if (ret)
+			pr_err("%s: failed to disable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+		else
+			pr_err("  execute power_down sequence in shut_down mode\n");
+
+	}
+	else if(unlikely(fw_upgrade_complete == 0 && HX_SMWP_EN == 0 && ID0_status == 0 && ID1_status == 1)){
+
+		pr_err("lijun .enter %s  HX_SMWP_EN = %d\n",__func__,HX_SMWP_EN);
+
+		ret = mdss_dsi_panel_reset(pdata, 0);
+		if (ret) {
+			pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+			ret = 0;
+		}
+		gpio_set_value(60,0);
+		gpio_set_value(64,0);
+		msleep(2);
+		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+			pr_err("reset disable: pinctrl not enabled\n");
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->panel_power_data.vreg_config,
+			ctrl_pdata->panel_power_data.num_vreg, 0);
+		gpio_set_value(13,0);	
+		msleep(10);
+		gpio_set_value(12,0);
+		if (ret)
+			pr_err("%s: failed to disable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+		else
+			pr_err("lijun execute power_down sequence in shut_down mode\n");
+
+	}
+	else if(unlikely(fw_upgrade_complete == 0 && HX_SMWP_EN == 0 && ID0_status == 1 && ID1_status == 0)){
+
+		pr_err("guoxian .enter %s  HX_SMWP_EN = %d\n",__func__,HX_SMWP_EN);
+
+		ret = mdss_dsi_panel_reset(pdata, 0);
+		if (ret) {
+			pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
+			ret = 0;
+		}
+		gpio_set_value(60,0);
+		gpio_set_value(64,0);
+		msleep(2);
+		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
+			pr_err("reset disable: pinctrl not enabled\n");
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->panel_power_data.vreg_config,
+			ctrl_pdata->panel_power_data.num_vreg, 0);
+		gpio_set_value(13,0);	
+		msleep(10);
+		gpio_set_value(12,0);
+		if (ret)
+			pr_err("%s: failed to disable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
+		else
+			pr_err("guoxian execute power_down sequence in shut_down mode\n");
+
+	}
+	else{
+		pr_err("it's lcd1, skip reset for tp gesture\n");
+		pr_err("else lijun .enter %s  HX_SMWP_EN = %d ID0_status = %d, ID1_status = %d,focaltech_gesture_enable= %d \n",__func__,HX_SMWP_EN, ID0_status, ID1_status,focaltech_gesture_enable);
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->panel_power_data.vreg_config,	2, 0);   //0
+		if (ret)
+			pr_err("%s: failed to disable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 	}
 
-	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
-		pr_debug("reset disable: pinctrl not enabled\n");
-
-	ret = msm_dss_enable_vreg(
-		ctrl_pdata->panel_power_data.vreg_config,
-		ctrl_pdata->panel_power_data.num_vreg, 0);
-	if (ret)
-		pr_err("%s: failed to disable vregs for %s\n",
-			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 
 end:
 	return ret;
@@ -315,12 +443,40 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	ret = msm_dss_enable_vreg(
-		ctrl_pdata->panel_power_data.vreg_config,
-		ctrl_pdata->panel_power_data.num_vreg, 1);
+
+	ID0_status = gpio_get_value(59);
+	ID1_status = gpio_get_value(27);
+	printk("swb.%s:get lcd_detect id0=%d,id1=%d\n", __func__,ID0_status,ID1_status);
+
+	if((ID0_status == 0) && (ID1_status == 1)){
+
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->panel_power_data.vreg_config,
+			ctrl_pdata->panel_power_data.num_vreg, 1);
+			gpio_set_value(12,1);
+			gpio_set_value(13,1);
+			gpio_set_value(64,1);
+
+	}
+	else  if(unlikely( focaltech_gesture_enable == 0  && ID0_status == 1 && ID1_status == 1)){    //lj if lcd2 skip reset
+		pr_err("xinli it's lcd2 ,power on\n");
+		//pr_err("lijun num_vreg = %d\n", ctrl_pdata->panel_power_data.num_vreg);
+
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->panel_power_data.vreg_config,
+			ctrl_pdata->panel_power_data.num_vreg, 1);
+		gpio_set_value(12,1);
+		gpio_set_value(13,1);
+		gpio_set_value(64,1);
+	} else {
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->panel_power_data.vreg_config,
+			ctrl_pdata->panel_power_data.num_vreg, 1);
+	}
 	if (ret) {
 		pr_err("%s: failed to enable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
@@ -333,17 +489,49 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 	 * bootloader. This needs to be done irresepective of whether
 	 * the lp11_init flag is set or not.
 	 */
-	if (pdata->panel_info.cont_splash_enabled ||
-		!pdata->panel_info.mipi.lp11_init) {
-		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
-			pr_debug("reset enable: pinctrl not enabled\n");
+	 pr_err("%s: 1 fw_upgrade_complete = %d\n",__func__, fw_upgrade_complete);
+	if((ID0_status == 0) && (ID1_status == 1)){
+		 pr_err("%s: 2 himax fw_upgrade_complete = %d\n",__func__, fw_upgrade_complete);
+		if(fw_upgrade_complete == 0)
+		{
+			if (pdata->panel_info.cont_splash_enabled ||
+			!pdata->panel_info.mipi.lp11_init) {
+				if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+					pr_debug("reset enable: pinctrl not enabled\n");
 
-		ret = mdss_dsi_panel_reset(pdata, 1);
-		if (ret)
-			pr_err("%s: Panel reset failed. rc=%d\n",
-					__func__, ret);
+				ret = mdss_dsi_panel_reset(pdata, 1);
+				if (ret)
+					pr_err("%s: Panel reset failed. rc=%d\n",__func__, ret);
+			}
+		}
 	}
+	else if((ID0_status == 1) && (ID1_status == 0)){
+		 pr_err("%s: guoxian fw_upgrade_complete = %d\n",__func__, fw_upgrade_complete);
+		if(fw_upgrade_complete == 0)
+		{
+			if (pdata->panel_info.cont_splash_enabled ||
+			!pdata->panel_info.mipi.lp11_init) {
+				if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+					pr_debug("reset enable: pinctrl not enabled\n");
 
+				ret = mdss_dsi_panel_reset(pdata, 1);
+				if (ret)
+					pr_err("%s: Panel reset failed. rc=%d\n",__func__, ret);
+			}
+		}
+	}
+	else{
+		if (pdata->panel_info.cont_splash_enabled ||
+			!pdata->panel_info.mipi.lp11_init) {
+			if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+				pr_debug("reset enable: pinctrl not enabled\n");
+
+			ret = mdss_dsi_panel_reset(pdata, 1);
+			if (ret)
+				pr_err("%s: Panel reset failed. rc=%d\n",
+						__func__, ret);
+		}
+	}
 	return ret;
 }
 
@@ -1492,10 +1680,36 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * Issue hardware reset line after enabling the DSI clocks and data
 	 * data lanes for LP11 init
 	 */
+	//pr_err("%s: 3 fw_upgrade_complete = %d\n",__func__, fw_upgrade_complete);
+	if((ID0_status == 0) && (ID1_status == 1)){
+		if(fw_upgrade_complete == 0)
+		{
+			pr_err("%s: HXTP fw_upgrade_complete = %d\n",__func__, fw_upgrade_complete);
+			if (mipi->lp11_init) {
+				if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+					pr_debug("reset enable: pinctrl not enabled\n");
+				mdss_dsi_panel_reset(pdata, 1);
+			}
+		}
+	}
+	else if((ID0_status == 1) && (ID1_status == 0)){
+		if(fw_upgrade_complete == 0)
+		{
+			pr_err("%s: GUO XIAN fw_upgrade_complete = %d\n",__func__, fw_upgrade_complete);
+			if (mipi->lp11_init) {
+				if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
+					pr_debug("reset enable: pinctrl not enabled\n");
+				mdss_dsi_panel_reset(pdata, 1);
+			}
+		}
+	}
+	else
+	{
 	if (mipi->lp11_init) {
 		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
 			pr_debug("reset enable: pinctrl not enabled\n");
 		mdss_dsi_panel_reset(pdata, 1);
+	}
 	}
 
 	if (mipi->init_delay)

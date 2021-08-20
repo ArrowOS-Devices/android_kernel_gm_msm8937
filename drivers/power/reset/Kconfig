@@ -30,6 +30,18 @@ config POWER_RESET_AT91_RESET
 	  This driver supports restart for Atmel AT91SAM9 and SAMA5
 	  SoCs
 
+#add for ssr reboot
+config SSR_REBOOT
+     bool "just for NORMAL build"
+     help
+	This is just for NORMAL build
+############end########################
+config BUILD_FACTORY
+     bool "just for factory build"
+     default y
+     help
+	This is just for factory build
+
 config POWER_RESET_AXXIA
 	bool "LSI Axxia reset driver"
 	depends on ARCH_AXXIA

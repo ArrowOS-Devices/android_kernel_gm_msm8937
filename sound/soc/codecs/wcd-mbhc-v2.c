@@ -48,10 +48,10 @@
 #define HS_VREF_MIN_VAL 1400
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 4000000
-#define FAKE_REM_RETRY_ATTEMPTS 3
+#define FAKE_REM_RETRY_ATTEMPTS 5
 #define MAX_IMPED 60000
 
-#define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
+#define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  100
 #define ANC_DETECT_RETRY_CNT 7
 #define WCD_MBHC_SPL_HS_CNT  2
 
@@ -883,8 +883,9 @@ exit:
 /* To determine if cross connection occured */
 static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 {
-	u16 swap_res;
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_NONE;
+#if 0 /*mike_zhu removed for optimizing headphone detect*/
+	u16 swap_res;
 	s16 reg1;
 	bool hphl_sch_res, hphr_sch_res;
 
@@ -942,7 +943,7 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
 	}
 
-
+#endif
 	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
 }
 
@@ -1224,7 +1225,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			 __func__, plug_type);
 		goto correct_plug_type;
 	}
-
+	pr_err("%s:plug_type: %d\n", __func__,plug_type);
 	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	     plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
 	    (!wcd_swch_level_remove(mbhc))) {
@@ -1320,7 +1321,11 @@ correct_plug_type:
 					 */
 					pr_debug("%s: switch didnt work\n",
 						  __func__);
+#if 0 ///lc mike_zhu 20171012 We don't have switch pin to swap GND & MIC, so reports HEADPHONE instead.
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+#else
+					plug_type = MBHC_PLUG_TYPE_HEADPHONE;
+#endif
 					goto report;
 				} else {
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
@@ -2130,8 +2135,8 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_L_DET_PULL_UP_COMP_CTRL, 1);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
 
-	/* Insertion debounce set to 96ms */
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_INSREM_DBNC, 6);
+	/* Insertion debounce set to 96ms---lc mike_zhu change to 256 ms  */
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_INSREM_DBNC, 9);
 	/* Button Debounce set to 16ms */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_DBNC, 2);
 
